@@ -63,7 +63,8 @@ The optional input `custom_hf_repo` accepts a repository that you made with the 
 
 - Idol Model Loader: loads all weights to the CPU. It registers them with the model manager of ComfyUI (the part that moves models between the GPU and the CPU).
 - Idol Image to 3D Gaussians: takes an `IMAGE` and an optional `MASK`. It returns `IDOL_GAUSSIAN`, the preprocessed 1024-pixel image, and the predicted camera as JSON. It processes a batch one image at a time. The mask skips background removal.
-- Idol Save PLY: writes a `.ply` file to the output folder. It returns the absolute path of the file.
+- Idol Save PLY: writes a `.ply` file to the output folder. It returns the absolute path of the file. It also returns the file as `model_3d`.
+- Idol Gaussian to 3D File: converts `IDOL_GAUSSIAN` to `model_3d`, the 3D file type of ComfyUI. It writes the file to the temporary folder, not to the output folder.
 
 ## Use
 
@@ -72,6 +73,9 @@ The optional input `custom_hf_repo` accepts a repository that you made with the 
 3. Connect `Idol Image to 3D Gaussians` to `Idol Save PLY`.
 4. Set `mode` to `real` for photographs. Set `mode` to `synthetic` for renders and generated images.
 5. To skip background removal, connect a mask.
+6. To see the result in ComfyUI, connect `Idol Gaussian to 3D File` to the built-in `Preview Splat` node. Connect `Idol Image to 3D Gaussians` to `Idol Gaussian to 3D File`.
+
+The `model_3d` outputs need a version of ComfyUI that has the `Preview Splat` node. On older versions, open the `.ply` file in a splat viewer.
 
 ## Convert the weights (optional)
 

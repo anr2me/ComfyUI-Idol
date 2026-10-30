@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import time
+import uuid
 from contextlib import contextmanager
 from functools import lru_cache
 from types import SimpleNamespace
@@ -22,6 +23,15 @@ from .flux2_vae import prepare_flux2_vae_folder
 from .idol_mm import load_to_gpu, make_patcher, module_of, unload_patchers
 
 log = logging.getLogger("ComfyUI-Idol")
+
+# ComfyUI's 3D file type. The built-in "Preview Splat" node takes it. Older ComfyUI versions do not have it:
+# the nodes then work as before, without the model_3d outputs.
+try:
+    from comfy_api.latest import Types as _ComfyTypes
+    _File3D = _ComfyTypes.File3D
+except Exception:
+    _File3D = None
+FILE3D_PLY = "FILE_3D_PLY"
 
 GiB = 1024 ** 3
 # Working-memory hints (on top of the weights) handed to ComfyUI so it can evict other models first.
@@ -469,8 +479,8 @@ class IdolSavePLY:
             "filename_prefix": ("STRING", {"default": "idol/gaussian"}),
         }}
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("ply_path",)
+    RETURN_TYPES = ("STRING",) + ((FILE3D_PLY,) if _File3D else ())
+    RETURN_NAMES = ("ply_path",) + (("model_3d",) if _File3D else ())
     FUNCTION = "save"
     OUTPUT_NODE = True
     CATEGORY = "Idol"
@@ -481,16 +491,37 @@ class IdolSavePLY:
         filename = f"{name}_{counter:05}_.ply"
         path = os.path.join(folder, filename)
         gaussian.save_ply(path)
-        return {"ui": {"text": [os.path.join(subfolder, filename)]}, "result": (path,)}
+        result = (path,) + ((_File3D(path),) if _File3D else ())
+        return {"ui": {"text": [os.path.join(subfolder, filename)]}, "result": result}
+
+
+class IdolGaussianToFile3D:
+    """For the built-in Preview Splat node. The file goes to ComfyUI's temp folder, not to the output folder."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"gaussian": ("IDOL_GAUSSIAN",)}}
+
+    RETURN_TYPES = (FILE3D_PLY,)
+    RETURN_NAMES = ("model_3d",)
+    FUNCTION = "convert"
+    CATEGORY = "Idol"
+
+    def convert(self, gaussian):
+        path = os.path.join(folder_paths.get_temp_directory(), f"idol_{uuid.uuid4().hex[:12]}.ply")
+        gaussian.save_ply(path)
+        return (_File3D(path),)
 
 
 NODE_CLASS_MAPPINGS = {
     "IdolModelLoader": IdolModelLoader,
     "IdolGenerate": IdolGenerate,
     "IdolSavePLY": IdolSavePLY,
+    **({"IdolGaussianToFile3D": IdolGaussianToFile3D} if _File3D else {}),
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "IdolModelLoader": "Idol Model Loader",
     "IdolGenerate": "Idol Image to 3D Gaussians",
     "IdolSavePLY": "Idol Save PLY",
+    "IdolGaussianToFile3D": "Idol Gaussian to 3D File",
 }
