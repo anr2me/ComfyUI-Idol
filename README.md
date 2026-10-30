@@ -115,6 +115,6 @@ ComfyUI cannot move parts of a plain `torch.nn.Module` to the CPU. Each model th
 - This package does not use `torch.compile`. It changes module instances, and this does not work with managed offloading.
 - The `fast_sampling` option keeps three other speed-ups: batched CFG, cuDNN attention, and TF32.
 - Batched CFG (classifier-free guidance) runs both guidance passes in one batch. TF32 is a faster math mode of Nvidia GPUs.
-- These speed-ups need a CUDA GPU with compute capability 8.0 or higher.
+- These speed-ups need a CUDA GPU with compute capability 8.0 or higher (Ampere or newer). On other GPUs, such as Turing, the node ignores `fast_sampling` and uses the standard path. The standard path is slower, but it needs less VRAM.
 - If VRAM is low, turn off `fast_sampling`. Batched CFG doubles the activation memory of the denoiser.
 - A seed gives the same random order as the reference pipeline.
