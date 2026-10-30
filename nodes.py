@@ -57,7 +57,9 @@ def _idol() -> SimpleNamespace:
     except ImportError as error:
         raise ImportError(
             "ComfyUI-Idol needs the idol-sdk package and its dependencies. Install them into ComfyUI's Python:\n"
-            "  pip install -r custom_nodes/ComfyUI-Idol/requirements.txt\n"
+            "  pip install hatchling\n"
+            "  pip install --no-build-isolation -r custom_nodes/ComfyUI-Idol/requirements.txt\n"
+            "(On the Windows portable build, run both commands with python_embeded\\python.exe -s -m pip.)\n"
             f"(original error: {error})") from error
     return SimpleNamespace(
         TensorDict=TensorDict, decode_camera=decode_camera, EncoderAccessError=EncoderAccessError,

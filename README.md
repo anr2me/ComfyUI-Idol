@@ -12,8 +12,20 @@ ComfyUI-Idol adds three nodes to ComfyUI. The nodes turn one image into a 3D Gau
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/anr2me/ComfyUI-Idol.git
+pip install hatchling
 pip install --no-build-isolation -r ComfyUI-Idol/requirements.txt
 ```
+
+The package `idol-sdk` is built with `hatchling`. The option `--no-build-isolation` tells pip to use the `hatchling` that you installed first. Without `hatchling`, this option fails with the error `Cannot import 'hatchling.build'`.
+
+Some users report that the embedded Python of the Windows portable build of ComfyUI fails to build in an isolated environment. On that build, run both commands with `python_embeded` from the folder `ComfyUI_windows_portable`:
+
+```bat
+python_embeded\python.exe -s -m pip install hatchling
+python_embeded\python.exe -s -m pip install --no-build-isolation -r ComfyUI\custom_nodes\ComfyUI-Idol\requirements.txt
+```
+
+Do not use plain `pip` on that build. Plain `pip` installs the packages into another Python, and ComfyUI cannot see them.
 
 ## Get access to the encoders
 
