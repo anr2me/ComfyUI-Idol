@@ -18,6 +18,7 @@ import comfy.model_management as mm
 import comfy.utils
 import folder_paths
 
+from .flux2_vae import prepare_flux2_vae_folder
 from .idol_mm import load_to_gpu, make_patcher, module_of, unload_patchers
 
 log = logging.getLogger("ComfyUI-Idol")
@@ -32,10 +33,12 @@ ACT_DENOISER_BATCH_CFG = int(3.0 * GiB)
 HF_REPO = "speridlabs/idol"
 HF_CHOICE = "speridlabs/idol (auto-download)"
 AUTO_DIRNAME = "speridlabs_idol"
+VAE_FROM_CONFIG = "Default (from weights config)"
 
 IDOL_DIR = os.path.join(folder_paths.models_dir, "idol")
 os.makedirs(IDOL_DIR, exist_ok=True)
 folder_paths.add_model_folder_path("idol", IDOL_DIR)
+VAE_CACHE_DIR = os.path.join(IDOL_DIR, "_flux2_vae_cache")
 
 
 # --------------------------------------------------------------------------------------------------------------
@@ -92,6 +95,30 @@ def _resolve_source(value: str, base: str | None = None):
     return value
 
 
+def _vae_files() -> list[str]:
+    return [name for name in folder_paths.get_filename_list("vae") if name.lower().endswith(".safetensors")]
+
+
+def _vae_file_folder(file_or_name: str) -> str:
+    """A FLUX.2 VAE file (a path, or a file name in ComfyUI's models/vae) -> a folder that Idol can load."""
+    path = file_or_name if os.path.isfile(file_or_name) else folder_paths.get_full_path("vae", file_or_name)
+    if not path:
+        raise FileNotFoundError(f"FLUX.2 VAE file '{file_or_name}' not found in models/vae")
+    return prepare_flux2_vae_folder(path, VAE_CACHE_DIR)
+
+
+def _resolve_flux2_vae(source: str, vae_file: str, base: str | None = None):
+    """flux2_vae_source (text) wins over the flux2_vae_file list. None = use the repo named in config.json."""
+    source = (source or "").strip()
+    if source.lower().endswith(".safetensors"):
+        return _vae_file_folder(source)
+    if source:
+        return _resolve_source(source, base)
+    if vae_file and vae_file != VAE_FROM_CONFIG:
+        return _vae_file_folder(vae_file)
+    return None
+
+
 def _download_custom_repo(repo_id: str) -> str:
     """A repo made with tools/convert_idol.py (Idol weights + encoders in one folder)."""
     from huggingface_hub import snapshot_download
@@ -105,7 +132,8 @@ def _download_custom_repo(repo_id: str) -> str:
     return target
 
 
-def _prepare_weights(idol, choice: str, dinov3_source: str, flux2_vae_source: str, custom_repo: str = ""):
+def _prepare_weights(idol, choice: str, dinov3_source: str, flux2_vae_source: str, custom_repo: str = "",
+                     flux2_vae_file: str = VAE_FROM_CONFIG):
     """Find (and if needed download) the Idol weights; check access to the gated encoders *before* any big download."""
     need_download = False
     if (custom_repo or "").strip():
@@ -126,7 +154,7 @@ def _prepare_weights(idol, choice: str, dinov3_source: str, flux2_vae_source: st
         config = json.load(f)
     encoders = config["image_encoders"]
     dinov3_repo = _resolve_source(dinov3_source, weights_dir) or _resolve_source(encoders["dinov3"], weights_dir)
-    flux2_repo = (_resolve_source(flux2_vae_source, weights_dir)
+    flux2_repo = (_resolve_flux2_vae(flux2_vae_source, flux2_vae_file, weights_dir)
                   or _resolve_source(encoders["flux2_vae"], weights_dir))
 
     remote = [repo for repo in (dinov3_repo, flux2_repo) if not os.path.isdir(repo)]
@@ -179,8 +207,14 @@ class IdolModelLoader:
                                              "Optional local folder (or HF repo id) for DINOv3 ViT-H+. "
                                              "Empty = the gated facebook repo from config.json."}),
                 "flux2_vae_source": ("STRING", {"default": "", "tooltip":
-                                                "Optional local folder (containing a 'vae' subfolder) or HF repo "
-                                                "id for FLUX.2. Empty = black-forest-labs/FLUX.2-dev."}),
+                                                "Optional local folder (containing a 'vae' subfolder), a "
+                                                ".safetensors file, or an HF repo id for FLUX.2. "
+                                                "Empty = use flux2_vae_file or config.json."}),
+                "flux2_vae_file": ([VAE_FROM_CONFIG] + _vae_files(), {"tooltip":
+                                                                      "A FLUX.2 VAE from models/vae, for example "
+                                                                      "flux2-vae.safetensors (the one used by FLUX.2 "
+                                                                      "and FLUX.2 Klein workflows). Needs no access "
+                                                                      "to the gated FLUX.2-dev repo."}),
             },
         }
 
@@ -189,14 +223,15 @@ class IdolModelLoader:
     FUNCTION = "load"
     CATEGORY = "Idol"
 
-    def load(self, weights, dinov3_dtype, custom_hf_repo="", dinov3_source="", flux2_vae_source=""):
+    def load(self, weights, dinov3_dtype, custom_hf_repo="", dinov3_source="", flux2_vae_source="",
+             flux2_vae_file=VAE_FROM_CONFIG):
         from safetensors.torch import load_file
 
         idol = _idol()
         load_device = mm.get_torch_device()
         offload_device = mm.unet_offload_device()
         weights_dir, config, dinov3_repo, flux2_repo = _prepare_weights(
-            idol, weights, dinov3_source, flux2_vae_source, custom_hf_repo)
+            idol, weights, dinov3_source, flux2_vae_source, custom_hf_repo, flux2_vae_file)
 
         def build(cls, args, name):
             model = cls(**args)

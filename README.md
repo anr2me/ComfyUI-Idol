@@ -20,7 +20,7 @@ pip install --no-build-isolation -r ComfyUI-Idol/requirements.txt
 Idol uses two gated encoders from Hugging Face. A gated model needs your approval of its terms before you can download it.
 
 1. Request access to [facebook/dinov3-vith16plus-pretrain-lvd1689m](https://huggingface.co/facebook/dinov3-vith16plus-pretrain-lvd1689m).
-2. Request access to [black-forest-labs/FLUX.2-dev](https://huggingface.co/black-forest-labs/FLUX.2-dev).
+2. Request access to [black-forest-labs/FLUX.2-dev](https://huggingface.co/black-forest-labs/FLUX.2-dev). Skip this step if you use a local FLUX.2 VAE file (see the next section).
 3. Run `hf auth login`, or set the `HF_TOKEN` environment variable.
 
 The loader checks your access before it downloads large files. If access is missing, the loader names the repository that you must fix.
@@ -39,7 +39,11 @@ To work offline, put the weights in any folder under `models/idol/`. The folder 
 
 Then select the folder in the loader.
 
-The optional inputs `dinov3_source` and `flux2_vae_source` accept a local folder or a Hugging Face repository ID. For FLUX.2, use the folder that contains `vae/`.
+The optional inputs `dinov3_source` and `flux2_vae_source` accept a local folder or a Hugging Face repository ID. For FLUX.2, use the folder that contains `vae/`. `flux2_vae_source` also accepts the path of a `.safetensors` file.
+
+The optional input `flux2_vae_file` lists the `.safetensors` files in `ComfyUI/models/vae`. Select `flux2-vae.safetensors` to use the FLUX.2 VAE that you already use for FLUX.2 and FLUX.2 Klein. The loader then needs no access to the FLUX.2-dev repository.
+
+The loader checks that the file has every tensor that the model needs. If a tensor is missing, the loader stops with an error. Check the license of the VAE file that you use.
 
 The optional input `custom_hf_repo` accepts a repository that you made with the converter (see the next section). It overrides the `weights` list.
 
