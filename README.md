@@ -25,7 +25,7 @@ python_embeded\python.exe -s -m pip install hatchling
 python_embeded\python.exe -s -m pip install --no-build-isolation -r ComfyUI\custom_nodes\ComfyUI-Idol\requirements.txt
 ```
 
-Do not use plain `pip` on that build. Plain `pip` installs the packages into another Python, and ComfyUI cannot see them.
+Do not use plain `pip` on that portable build. Plain `pip` installs the packages into another Python, and ComfyUI cannot see them.
 
 ## Get access to the encoders
 
